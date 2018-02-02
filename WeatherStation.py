@@ -3,10 +3,14 @@ import sys
 import getopt
 import datetime
 import json
+import time
 # RaspberryPi specific
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 import Adafruit_DHT as DHT
-import Adafruit_BMP as BMP
+import Adafruit_BMP.BMP085 as BMP
+
+# The humidity sensor is attached to pin 4.
+DHT22_PIN = 4
 
 def usage():
     """Return the help/usage output for the WeatherStation application."""
@@ -41,9 +45,9 @@ def main():
 
     # Attempt to locate the correct arguments 
     try:
-        # use the dummy variable because pylint will throw and error.abs
-        opts, dummy = getopt.getopt(sys.argv[1:], "te:r:c:k:",
-                                    ["test",
+        # use the dummy variable because pylint will throw and error.
+        opts, dummy = getopt.getopt(sys.argv[1:], "de:r:c:k:",
+                                    ["debug",
                                     "endpoint",
                                     "rootCA",
                                     "certificate",
@@ -63,11 +67,9 @@ def main():
         if opt in ("-h", "--help"):
             # Output the usage function to act as a helper.
             usage()
-        elif opt in ("-t", "--test"):
-            # Run the test function (Print all readings to terminal)
-            # TODO: Add test function here
-            # TODO: Consider the use of a debug function??
-            print "TEST"
+        elif opt in ("-d", "--debug"):
+            # Run the debug function (Print all readings to terminal)
+            print_to_display()
         elif opt in ("-e", "--endpoint"):
             # I only want the global variable to be set if using this option
             global endpoint
@@ -87,4 +89,40 @@ def main():
         else:
             assert False, "ERROR: Unhandled option."
 
-main()                                    
+def check_sensors():
+    """Check the current sensors and working and reporting back."""
+
+def read_pressure():
+    """Using the BMP180 attached sensor read the pressure"""
+    BMP_sensor = BMP.BMP085()
+    return BMP_sensor.read_pressure()
+
+def read_temperature():
+    """Using the BMP180 attached sensor read the current temperature"""
+    BMP_sensor = BMP.BMP085()
+    return BMP_sensor.read_temperature()
+
+def read_altitude():
+    """Using the BMP180 attached sensor read the current altitude"""
+    BMP_sensor = BMP.BMP085()
+    return BMP_sensor.read_altitude()
+
+def read_humidity():
+    """Using the DHT22 attached sensor read the current humidity"""
+
+def print_to_display():
+    """This function will be used for debugging, printing the sensors to the terminal."""
+    # This function will loop forever until a user cancels it,
+    # Used to show the output of the sensors
+    print "DEBUG MODE"
+    print ""
+
+    while True:    
+        print "DEBUG: Current reading of pressure: ", read_pressure()
+        print "DEBUG: Current reading of temperature: ", read_temperature()
+        print "DEBUG: Current reading of altitude: ", read_altitude()
+        print ""
+        # Add a slight delay for the user to read the output.
+        time.sleep(1)        
+
+main()
