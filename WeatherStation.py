@@ -11,6 +11,11 @@ import Adafruit_BMP.BMP085 as BMP
 
 # The humidity sensor is attached to pin 4.
 DHT22_PIN = 4
+# Set the default DEBUG_MODE to false
+DEBUG_MODE = False
+# TODO: Shall I base the topic on the location of the device???
+# Maybe: WeatherStation-{location}??
+DEFAULT_TOPIC = "WeatherStation"
 
 def usage():
     """Return the help/usage output for the WeatherStation application."""
@@ -69,7 +74,7 @@ def main():
             usage()
         elif opt in ("-d", "--debug"):
             # Run the debug function (Print all readings to terminal)
-            print_to_display()
+            DEBUG_MODE = True
         elif opt in ("-e", "--endpoint"):
             # I only want the global variable to be set if using this option
             global endpoint
@@ -88,6 +93,8 @@ def main():
             privateKey = arg
         else:
             assert False, "ERROR: Unhandled option."
+
+    are_aws_iot_varibles_set()
 
 def check_sensors():
     """Check the current sensors and working and reporting back."""
@@ -123,6 +130,63 @@ def print_to_display():
         print "DEBUG: Current reading of altitude: ", read_altitude()
         print ""
         # Add a slight delay for the user to read the output.
-        time.sleep(1)        
+        time.sleep(1)       
+
+def are_aws_iot_varibles_set():
+    """A small function to check the required variables are set."""
+    # First step is to check the required values (endpoint, private key, etc..) are not null
+    # Basic if statement
+    # TODO Improve
+    if DEBUG_MODE is True:
+        # If DEBUG is set on the command line, just print sensor values to the window
+        print_to_display()       
+        # else if the values are set, attempt connection to AWS IoT service.
+    elif endpoint is not None and rootCA is not None and certificate is not None and privateKey is not None:
+        configure_aws_iot_connection()
+    else: 
+        # If all else fails, attempt to help the user
+        usage()
+        
+        
+
+def configure_aws_iot_connection():
+    """Configure the connection to AWS IoT service"""
+    # See documentation: https://github.com/aws/aws-iot-device-sdk-python#id3
+    # Connect to the AWS IoT service
+
+    # TODO: TESTING_CLIENT_ID Change me!
+
+    IoTClient = AWSIoTMQTTClient("TESTING_CLIENT_ID")
+    IoTClient.configureEndpoint(endpoint, 8883)
+    IoTClient.configureCredentials(rootCA, privateKey, certificate)
+
+    # AWSIoTMQTTClient connection configuration
+    IoTClient.configureAutoReconnectBackoffTime(1, 32, 20)
+    IoTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
+    IoTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
+    IoTClient.configureConnectDisconnectTimeout(10)  # 10 sec
+    IoTClient.configureMQTTOperationTimeout(5) # 5 sec
+
+    # Using the AWSIoTMQTTClient's connect method
+    IoTClient.connect()
+    
+    while True:
+        message = {}
+        message['Temperature'] = read_temperature()
+        message['Altitude'] = read_altitude()
+        message['Pressure'] = read_pressure()
+        # Now convert the message to json in order to send it too AWS
+        messageJson = json.dumps(message)
+        # Unsure what the '1' is atm.
+        IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+        time.sleep(1)
+
+
+def public_message_to_aws():
+    """A function to publish messages to AWS (Testing function for now)"""
+
+    # this function is only to be called from within the configure_aws_iot_connection function.
+     
+    
 
 main()
