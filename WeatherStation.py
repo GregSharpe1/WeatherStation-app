@@ -16,12 +16,12 @@ def usage():
     """Return the help/usage output for the WeatherStation application."""
     print "WeatherStation application - Greg Sharpe"
     print
-    print "Usage: ./WeatherStation.py -t (output the sensor information to the current window)"
+    print "Usage: ./WeatherStation.py -d (output the sensor information to the current window)"
     print "       ./WeatherStation.py -e {ENDPOINT} -r {ROOTCA} -c {CERTIFICATION} -k {PRIVATE KEY}"
     print
     print
     print "Examples: "
-    print "./WeatherStation.py -t"
+    print "./WeatherStation.py -d | --debug"
 
     # Sys exit 0, meaning exit in a clean manor without and errors.
     sys.exit(0)
