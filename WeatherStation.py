@@ -182,10 +182,10 @@ def configure_aws_iot_connection():
         # Now convert the message to json in order to send it too AWS
         messageJson = json.dumps(message)
         # If the topic is set then use the topic when publishing
-        if topic is not None:
-            IoTClient.publish(topic, messageJson, 1)
-        else:
+        if topic is None:
             IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+        else:
+            IoTClient.publish(topic, messageJson, 1)
         # Wait for oen second
         time.sleep(1)
 
