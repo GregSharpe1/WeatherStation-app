@@ -19,10 +19,11 @@ DEFAULT_TOPIC = "WeatherStation"
 
 def usage():
     """Return the help/usage output for the WeatherStation application."""
-    print "WeatherStation application - Greg Sharpe"
+    print "WeatherStation application - Greg Sharpe (gds2)"
     print
     print "Usage: ./WeatherStation.py -d (output the sensor information to the current window)"
     print "       ./WeatherStation.py -e {ENDPOINT} -r {ROOTCA} -c {CERTIFICATION} -k {PRIVATE KEY}"
+    print "       ./WeatherStation.py -e {ENDPOINT} -r {ROOTCA} -c {CERTIFICATION} -k {PRIVATE KEY} -t {TOPIC_EXAMPLE}"
     print
     print
     print "Examples: "
@@ -51,12 +52,13 @@ def main():
     # Attempt to locate the correct arguments 
     try:
         # use the dummy variable because pylint will throw and error.
-        opts, dummy = getopt.getopt(sys.argv[1:], "de:r:c:k:",
+        opts, dummy = getopt.getopt(sys.argv[1:], "de:r:c:k:t:",
                                     ["debug",
                                     "endpoint",
                                     "rootCA",
                                     "certificate",
-                                    "privateKey"])
+                                    "privateKey",
+                                    "topic"])
     # If the argument used within the command do not match one of the above 
     # (test, endpoint, etc.. or -t, -e, etc..) then print the error and the
     # usage function to the terminal
@@ -91,6 +93,10 @@ def main():
             # I only want the global variable to be set if using this option
             global privateKey 
             privateKey = arg
+        elif opt in ("-t", "--topic"):
+            # I only want the global variable to be set if using this option
+            global topic
+            topic = arg
         else:
             assert False, "ERROR: Unhandled option."
 
@@ -146,8 +152,7 @@ def are_aws_iot_varibles_set():
     else: 
         # If all else fails, attempt to help the user
         usage()
-        
-        
+
 
 def configure_aws_iot_connection():
     """Configure the connection to AWS IoT service"""
@@ -155,7 +160,6 @@ def configure_aws_iot_connection():
     # Connect to the AWS IoT service
 
     # TODO: TESTING_CLIENT_ID Change me!
-
     IoTClient = AWSIoTMQTTClient("TESTING_CLIENT_ID")
     IoTClient.configureEndpoint(endpoint, 8883)
     IoTClient.configureCredentials(rootCA, privateKey, certificate)
@@ -177,8 +181,12 @@ def configure_aws_iot_connection():
         message['Pressure'] = read_pressure()
         # Now convert the message to json in order to send it too AWS
         messageJson = json.dumps(message)
-        # Unsure what the '1' is atm.
-        IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+        # If the topic is set then use the topic when publishing
+        if topic is not None:
+            IoTClient.publish(topic, messageJson, 1)
+        else:
+            IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+        # Wait for oen second
         time.sleep(1)
 
 
@@ -186,7 +194,5 @@ def public_message_to_aws():
     """A function to publish messages to AWS (Testing function for now)"""
 
     # this function is only to be called from within the configure_aws_iot_connection function.
-     
-    
-
+       
 main()
