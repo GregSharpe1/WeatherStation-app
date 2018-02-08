@@ -4,11 +4,12 @@ import getopt
 import datetime
 import json
 import time
+import serial
 # RaspberryPi specific
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
-import Adafruit_DHT as DHT
 import Adafruit_BMP.BMP085 as BMP
 
+# DECLARE VARS
 # The humidity sensor is attached to pin 4.
 DHT22_PIN = 4
 # Set the default DEBUG_MODE to false
@@ -16,6 +17,10 @@ DEBUG_MODE = False
 # TODO: Shall I base the topic on the location of the device???
 # Maybe: WeatherStation-{location}??
 DEFAULT_TOPIC = "WeatherStation"
+# ESP8266 Attached
+ESP8266_USB_PORT="/dev/ttyUSB0"
+ESP8266_BRAD_RATE="115200"
+
 
 def usage():
     """Return the help/usage output for the WeatherStation application."""
@@ -76,12 +81,13 @@ def main():
             usage()
         elif opt in ("-d", "--debug"):
             # Run the debug function (Print all readings to terminal)
-            DEBUG_MODE = True
+            # And do not send any data to AWS.
+            print_to_display()
         elif opt in ("-e", "--endpoint"):
             # I only want the global variable to be set if using this option
             global endpoint
             endpoint = arg
-        elif opt in ("-r", "-rootca"):
+        elif opt in ("-r", "--rootca"):
             # I only want the global variable to be set if using this option
             global rootCA
             rootCA = arg
@@ -100,7 +106,13 @@ def main():
         else:
             assert False, "ERROR: Unhandled option."
 
-    are_aws_iot_varibles_set()
+
+def read_from_serial():
+    """This function will take input from the ESP8266 device attached via USB"""
+    # Let's first initialise the connect with Serial library
+    serial_connection_to_esp8266 = serial.Serial(ESP8266_USB_PORT, ESP8266_BRAD_RATE)
+    # return the serial output line by line
+    return serial_connection_to_esp8266.readline()
 
 def check_sensors():
     """Check the current sensors and working and reporting back."""
@@ -130,29 +142,13 @@ def print_to_display():
     print "DEBUG MODE"
     print ""
 
-    while True:    
+    while True:
         print "DEBUG: Current reading of pressure: ", read_pressure()
         print "DEBUG: Current reading of temperature: ", read_temperature()
         print "DEBUG: Current reading of altitude: ", read_altitude()
         print ""
         # Add a slight delay for the user to read the output.
         time.sleep(1)       
-
-def are_aws_iot_varibles_set():
-    """A small function to check the required variables are set."""
-    # First step is to check the required values (endpoint, private key, etc..) are not null
-    # Basic if statement
-    # TODO Improve
-    if DEBUG_MODE is True:
-        # If DEBUG is set on the command line, just print sensor values to the window
-        print_to_display()       
-        # else if the values are set, attempt connection to AWS IoT service.
-    elif endpoint is not None and rootCA is not None and certificate is not None and privateKey is not None:
-        configure_aws_iot_connection()
-    else: 
-        # If all else fails, attempt to help the user
-        usage()
-
 
 def configure_aws_iot_connection():
     """Configure the connection to AWS IoT service"""
