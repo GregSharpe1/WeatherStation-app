@@ -3,7 +3,7 @@
 
     Sketch for a Aberyswyth University, Computer Science, Major Project
     Retrieves meteorological information from an assorted range of sensors including;
-    an anemometer, rain gauge and two DHT22 temperature/humidity sensors.
+    an anemometer, rain gauge and two DHT22 temperature/humidity sensors and BMP180.
 
     The data is outputted in a standard json format and then passed onto a Raspberry
     Pi Zero for process and eventually sent to AWS IoT Service.
@@ -39,12 +39,10 @@ double windSpeed = 0; // Wind speed in metres per second
 // SDA from the BMP180 to D2
 Adafruit_BMP085 BMP;
 
-
 // DHT22 Humidity sensor defines
-// INWARD (inside the case)
 #define DHT_TYPE DHT22
+// INWARD (inside the case)
 #define DHT22_INWARD_PIN D4
-
 // OUTWARD (outside the case)
 #define DHT22_OUTWARD_PIN D5
 
@@ -52,7 +50,7 @@ Adafruit_BMP085 BMP;
 DHT INWARD_DHT_22(DHT22_INWARD_PIN, DHT_TYPE, 11);
 DHT OUTWARD_DHT_22(DHT22_OUTWARD_PIN, DHT_TYPE, 11);
 
-
+// Initalize the JSON Buffer to 200 Characters
 StaticJsonBuffer<200> jsonBuffer;
 
 enum DHTReadingType {
@@ -88,13 +86,25 @@ boolean recieveDatagram() {
 // Function to return the value from a DHT22 sensor depending on which sensor (there will be multiple)
 // And which reading you would like to take (Humidity or Temperature)
 double getDHTValue(DHT sensor, DHTReadingType type) {
-  double tempReading;
-
-  if (type == HUMIDITY) {
-    tempReading = sensor.readHumidity();
+  double dhtreading;
+  
+  // Take input when calling the Function
+  // Depending on what is called return
+  // the given reading.
+  switch (type) {
+    case TEMPERATURE:
+      dhtreading = sensor.readTemperature();
+      break;
+    case HUMIDITY:
+      dhtreading = sensor.readHumidity();
+      break;
+    default:
+      Serial.println("Please choose one of the following: TEMPERATURE, HUMIDITY");
+      break;
   }
-  return tempReading;
+  return dhtreading;
 }
+  
 
 // Function that decomposes the datagram of an anemometer into its composed varaibles wind direction and wind speed
 // **Modified from work by Pete Todd cht35@aber.ac.uk**
@@ -232,8 +242,6 @@ void setup() {
 
   // First Attempt at exporting the values to json
   // Using the arduinojson.org/assistant from the creator of the ArduinoJson library
-  
-
   JsonObject& weather = jsonBuffer.createObject();
   
   pinMode(ANEMOMETER_PIN, INPUT); // Initialise anemometer pin as 'input'
@@ -254,7 +262,7 @@ void loop() {
       translateWindDirection(); // Gets the associated compass direction from its number
     }
     else if (recieveDatagram() == false){
-      windSpeed = -50.00; // Sets windSpeed to -50 aka NULL if no datagram recieved
+      windSpeed = NULL; // Sets windSpeed to -50 aka NULL if no datagram recieved
       windDirection = "N/A"; // Sets windDirection to "N/A"
     }
     yield();
