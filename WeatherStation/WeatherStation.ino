@@ -13,11 +13,12 @@
 
 // Included libraries
 #include <DHT.h>
-#include <Adafruit_BMP085.h>
+#include <Adafruit_BME280.h>
 #include <ArduinoJson.h>
 
 // Debug flag
 #define DEBUG true
+int DEBUGCOUNTER = 0;
 
 // Anemometer defines
 #define ANEMOMETER_PIN D3
@@ -35,9 +36,15 @@ String windDirection = ""; // Wind direction as compass direction
 double windSpeed = 0; // Wind speed in metres per second
 
 // Initialize Temperature, Humidity and Altitude sensors
-// SCL from the BMP180 to D1
-// SDA from the BMP180 to D2
-Adafruit_BMP085 BMP;
+// SCL from the BME280 to D1
+// SDA from the BME280 to D2
+
+/*
+// Important! 
+// Modified the below library and changed the I2C address to 0x76 from 0x77.
+// As per comment here: https://arduinotronics.blogspot.co.uk/2017/06/esp8266-bme280-weather-station.html (bottom half of the page)
+*/
+Adafruit_BME280 BMP;
 
 // DHT22 Humidity sensor defines
 #define DHT_TYPE DHT22
@@ -60,7 +67,7 @@ enum DHTReadingType {
 
 // Function that retrieves the datagram from the amemometer and places it into a char array
 boolean recieveDatagram() {
-  unsigned long duration = 0;
+ unsigned long duration = 0;
 
   while (digitalRead(ANEMOMETER_PIN) == HIGH) {
     delayMicroseconds(1);
@@ -82,6 +89,7 @@ boolean recieveDatagram() {
     return false;
   }
 }
+
 
 // Function to return the value from a DHT22 sensor depending on which sensor (there will be multiple)
 // And which reading you would like to take (Humidity or Temperature)
@@ -108,7 +116,7 @@ double getDHTValue(DHT sensor, DHTReadingType type) {
 
 // Function that decomposes the datagram of an anemometer into its composed varaibles wind direction and wind speed
 // **Modified from work by Pete Todd cht35@aber.ac.uk**
-void decomposeWindReading() {
+void get_anemometer_readings() {
   // Determines wind direction from the supplied 4 bit value. Requires inverting and needs its endinness swapped
   windDirectionNo = (anemometerDatagram[8] << 3 ) + (anemometerDatagram[7] << 2 ) + (anemometerDatagram[6] << 1 ) + anemometerDatagram[5];
   windDirectionNo = (~windDirectionNo) & 0x0f;
@@ -141,6 +149,12 @@ void decomposeWindReading() {
   if (checksum != calculatedChecksum) {
     Serial.println("\nFailed to read from anemometer |Checksum Error|");
     Serial.println("Checksum: " + String(checksum) + " != " + String(calculatedChecksum));
+  }
+  else if (DEBUG == true) {
+    Serial.println("Printing Wind Speed values: ");
+    Serial.println(windSpeedValue);
+    windSpeed = double(windSpeedValue) / 10;
+    Serial.println(windSpeed);
   }
 }
 
@@ -201,12 +215,13 @@ void translateWindDirection() {
 
 double json_builder() 
 {
+  
   JsonObject& weather = jsonBuffer.createObject();
-
+  // After testing I believe I need a delay before creating the 
+  // JSON object. 
   weather["Temperature"] = String(BMP.readTemperature());
   weather["Wind Direction"] = String(windDirection);
   weather["Wind Speed"] = String(windSpeed);
-  weather["Altitude"] = String(BMP.readAltitude());
   weather["Pressure"] = String(BMP.readPressure());
   weather["Humidity"] = String(getDHTValue(INWARD_DHT_22, HUMIDITY));
   
@@ -216,13 +231,23 @@ double json_builder()
 
 // Outputs the most recent meteorological data to the serial monitor
 void displayLastReading() {
+
+  // Increase the Debug counter every time I loop through this function
+  DEBUGCOUNTER++;
+
+  // I need to cleanup this function
+  
   Serial.println("DEBUG MODE!!!");
+  Serial.println();
+  Serial.println("Number of loops");
+  Serial.println();
+  Serial.println(DEBUGCOUNTER);
   Serial.println("");
   Serial.println("Wind Direction: " + String(windDirection));
   Serial.println("Wind Speed: " + String(windSpeed) + " m/s");
-  Serial.println("Altitude: " + String(BMP.readAltitude()) + "");
   Serial.println("Temperature: " + String(BMP.readTemperature()) + " Celsius");
   Serial.println("Pressure: " + String(BMP.readPressure()) + " Pascal");
+  Serial.println("Humidity: (BME280) " + String(BMP.readHumidity()));
   Serial.println("Humidity (inside): " + String(getDHTValue(INWARD_DHT_22, HUMIDITY)));
   Serial.println("Humidity (outside): " + String(getDHTValue(OUTWARD_DHT_22, HUMIDITY)));
   Serial.println();
@@ -230,12 +255,14 @@ void displayLastReading() {
 
 // System set-up
 void setup() {
+  
   Serial.begin(115200);
+  Serial.println("BEGINNING SETUP");
   if (!BMP.begin()) {
-    Serial.println("Could not find the BMP180, check the wiring!");
+    Serial.println("Could not find the BME280, check the wiring!");
     while (1) {}
   }
-
+ 
   // Start the DHT Modules
   INWARD_DHT_22.begin();
   OUTWARD_DHT_22.begin();
@@ -245,34 +272,37 @@ void setup() {
   JsonObject& weather = jsonBuffer.createObject();
   
   pinMode(ANEMOMETER_PIN, INPUT); // Initialise anemometer pin as 'input'
+  Serial.println("FINISHED SETUP");
   delay(1000);
+
 }
 
 // Main system loop
 void loop() {
   currentTime = millis(); // Set current time (from when the board began)
-
+ 
   // If time since last reading is more than set interval, perform next reading
   if (currentTime - previousTime >= interval) {
     previousTime = currentTime;
 
-    if (recieveDatagram() == true) { // Retrieves anemometer datagram
+    if (recieveDatagram() == true) {
       yield();
-      decomposeWindReading(); // Decomposed datagram into its parts: WindDirection and WindSpeed
+      // DEBUGGING PURPOSES
+      //Serial.println("ANEMOMETER DATAGRAM IS TRUE");
+      get_anemometer_readings(); // Decomposed datagram into its parts: WindDirection and WindSpeed
       translateWindDirection(); // Gets the associated compass direction from its number
     }
     else if (recieveDatagram() == false){
-      windSpeed = NULL; // Sets windSpeed to -50 aka NULL if no datagram recieved
-      windDirection = "N/A"; // Sets windDirection to "N/A"
+      // DEBUGGING PURPOSES
+      //Serial.println("ANEMOMETER DATAGRAM IS FALSE");
+      windSpeed = -50.00; 
+      windDirection = "N/A"; 
     }
     yield();
-    
-    
+        
     // Perform when DEBUG flag is set to 'true'
     if (DEBUG == true) {
       displayLastReading();
-      Serial.println("Testing the JSON library: ");
-      json_builder();
     }
   }
   ESP.wdtFeed(); // Feed the watchdog timer to keep it content
