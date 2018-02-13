@@ -5,8 +5,9 @@ import datetime
 import json
 import time
 import serial
+import glob
 
-from AWSIoTPythonSDK import AWSIoTMQTTClient
+from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 # Set the default DEBUG_MODE to false
 DEBUG_MODE = False
@@ -14,7 +15,6 @@ DEBUG_MODE = False
 # Maybe: WeatherStation-{location}??
 DEFAULT_TOPIC = "WeatherStation"
 # ESP8266 Attached
-ESP8266_USB_PORT="/dev/ttyUSB0"
 ESP8266_BRAD_RATE="115200"
 
 def usage():
@@ -101,10 +101,41 @@ def main():
         else:
             assert False, "ERROR: Unhandled option."
 
+# Slightly modified from: https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
+def get_esp8266_serial_port():
+    """ Find, Test and Return the correct port
+        (Can only be a port connected with USB)
+
+        :raises EnvironmentError:
+            On unsupported or unknown platforms
+        :returns:
+            A list of the serial ports available on the system
+    """
+    if sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        # this excludes your current terminal "/dev/tty"
+        # As the device will only be connected via USB
+        # List the USB ports
+        port = glob.glob('/dev/ttyUSB*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    # the glob function returns the port variable as a string
+    # as we are only going to have one value EVER!
+    # convert the 'list' it returns into a string by striping the 'leftovers'
+    port = str(port).strip("'[]'")
+    # Attempt to connect to the port
+    try:
+        s = serial.Serial(port)
+        s.close()
+    except (OSError, serial.SerialException):
+        pass
+    return port
+
+
 def read_from_serial():
     """This function will take input from the ESP8266 device attached via USB"""
     # Let's first initialise the connect with Serial library
-    serial_connection_to_esp8266 = serial.Serial(ESP8266_USB_PORT, ESP8266_BRAD_RATE)
+    serial_connection_to_esp8266 = serial.Serial(get_esp8266_serial_port(), ESP8266_BRAD_RATE)
     # return the serial output line by line
     return serial_connection_to_esp8266.readlines()
 
