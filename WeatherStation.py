@@ -5,13 +5,9 @@ import datetime
 import json
 import time
 import serial
-# RaspberryPi specific
-from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
-import Adafruit_BMP.BMP085 as BMP
 
-# DECLARE VARS
-# The humidity sensor is attached to pin 4.
-DHT22_PIN = 4
+from AWSIoTPythonSDK import AWSIoTMQTTClient
+
 # Set the default DEBUG_MODE to false
 DEBUG_MODE = False
 # TODO: Shall I base the topic on the location of the device???
@@ -20,7 +16,6 @@ DEFAULT_TOPIC = "WeatherStation"
 # ESP8266 Attached
 ESP8266_USB_PORT="/dev/ttyUSB0"
 ESP8266_BRAD_RATE="115200"
-
 
 def usage():
     """Return the help/usage output for the WeatherStation application."""
@@ -106,49 +101,33 @@ def main():
         else:
             assert False, "ERROR: Unhandled option."
 
-
 def read_from_serial():
     """This function will take input from the ESP8266 device attached via USB"""
     # Let's first initialise the connect with Serial library
     serial_connection_to_esp8266 = serial.Serial(ESP8266_USB_PORT, ESP8266_BRAD_RATE)
     # return the serial output line by line
-    return serial_connection_to_esp8266.readline()
+    return serial_connection_to_esp8266.readlines()
 
-def check_sensors():
-    """Check the current sensors and working and reporting back."""
 
-def read_pressure():
-    """Using the BMP180 attached sensor read the pressure"""
-    BMP_sensor = BMP.BMP085()
-    return BMP_sensor.read_pressure()
+def get_sensor_value(attribute):
+    """A function to return values based on function input."""
+    # Assuming the JSON Object is laid out like:
+    # { 
+    #     "temperature": "20.0"
+    #     "humidity": "20.0"
+    #     "air pressure": "20.0"
+    #     "altitude": "20.0"
+    #     "wind": {
+    #         "speed": "20.0",
+    #         "direction": "NNW"
+    #         }
+    # }
+    # Read from the above returning a value.
+    with open("weather_example.json") as json_data_file:
+        data = json.load(json_data_file)
+        attribute_val = data.get(attribute)
+    return attribute_val
 
-def read_temperature():
-    """Using the BMP180 attached sensor read the current temperature"""
-    BMP_sensor = BMP.BMP085()
-    return BMP_sensor.read_temperature()
-
-def read_altitude():
-    """Using the BMP180 attached sensor read the current altitude"""
-    BMP_sensor = BMP.BMP085()
-    return BMP_sensor.read_altitude()
-
-def read_humidity():
-    """Using the DHT22 attached sensor read the current humidity"""
-
-def print_to_display():
-    """This function will be used for debugging, printing the sensors to the terminal."""
-    # This function will loop forever until a user cancels it,
-    # Used to show the output of the sensors
-    print "DEBUG MODE"
-    print ""
-
-    while True:
-        print "DEBUG: Current reading of pressure: ", read_pressure()
-        print "DEBUG: Current reading of temperature: ", read_temperature()
-        print "DEBUG: Current reading of altitude: ", read_altitude()
-        print ""
-        # Add a slight delay for the user to read the output.
-        time.sleep(1)       
 
 def configure_aws_iot_connection():
     """Configure the connection to AWS IoT service"""
@@ -169,26 +148,6 @@ def configure_aws_iot_connection():
 
     # Using the AWSIoTMQTTClient's connect method
     IoTClient.connect()
-    
-    while True:
-        message = {}
-        message['Temperature'] = read_temperature()
-        message['Altitude'] = read_altitude()
-        message['Pressure'] = read_pressure()
-        # Now convert the message to json in order to send it too AWS
-        messageJson = json.dumps(message)
-        # If the topic is set then use the topic when publishing
-        if topic is None:
-            IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
-        else:
-            IoTClient.publish(topic, messageJson, 1)
-        # Wait for oen second
-        time.sleep(1)
 
-
-def public_message_to_aws():
-    """A function to publish messages to AWS (Testing function for now)"""
-
-    # this function is only to be called from within the configure_aws_iot_connection function.
-       
-main()
+while True:
+    print read_from_serial()
