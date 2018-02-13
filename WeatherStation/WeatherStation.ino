@@ -3,7 +3,7 @@
 
     Sketch for a Aberyswyth University, Computer Science, Major Project
     Retrieves meteorological information from an assorted range of sensors including;
-    an anemometer, rain gauge and two DHT22 temperature/humidity sensors and BMP180.
+    an anemometer, rain gauge and two DHT22 temperature/humidity sensors and BME180.
 
     The data is outputted in a standard json format and then passed onto a Raspberry
     Pi Zero for process and eventually sent to AWS IoT Service.
@@ -23,9 +23,10 @@
 #include <ArduinoJson.h>
 
 // Debug flag
-#define DEBUG true
+// When DEBUG is FALSE only the JSON output shall be printed to Serial
+// in order for the Raspberry Pi to read.
+#define DEBUG false
 int DEBUGCOUNTER = 0;
-
 
 // Anemometer defines
 #define ANEMOMETER_PIN D3
@@ -51,7 +52,7 @@ double windSpeed = 0; // Wind speed in metres per second
 // Modified the below library and changed the I2C address to 0x76 from 0x77.
 // As per comment here: https://arduinotronics.blogspot.co.uk/2017/06/esp8266-bme280-weather-station.html (bottom half of the page)
 */
-Adafruit_BME280 BMP;
+Adafruit_BME280 BME;
 
 // DHT22 Humidity sensor defines
 #define DHT_TYPE DHT22
@@ -65,7 +66,7 @@ DHT INWARD_DHT_22(DHT22_INWARD_PIN, DHT_TYPE, 11);
 DHT OUTWARD_DHT_22(DHT22_OUTWARD_PIN, DHT_TYPE, 11);
 
 // Initalize the JSON Buffer to 200 Characters
-StaticJsonBuffer<200> jsonBuffer;
+StaticJsonBuffer<1500> jsonBuffer;
 
 enum DHTReadingType {
   TEMPERATURE,
@@ -235,31 +236,48 @@ void translateWindDirection() {
   }
 }
 
-
-double json_builder() 
+double generate_json()
 {
+  //     Assuming the JSON Object is laid out like:
+  //           { "location":
+  //               { "Aberystwyth": { 
+  //                   "temperature": "20.0"
+  //                   "humidity": "20.0"
+  //                   "air pressure": "20.0"
+  //                   "altitude": "20.0"
+  //                   "wind": {
+  //                       "speed": "20.0",
+  //                       "direction": "NNW"
+  //                       }
+  //                   }
+  //               }
+  //           }
   
+  // First we'll create the JSON object with the name 'weather'
   JsonObject& weather = jsonBuffer.createObject();
-  // After testing I believe I need a delay before creating the 
-  // JSON object. 
-  weather["Temperature"] = String(BMP.readTemperature());
-  weather["Wind Direction"] = String(windDirection);
-  weather["Wind Speed"] = String(windSpeed);
-  weather["Pressure"] = String(BMP.readPressure());
-  weather["Humidity"] = String(getDHTValue(INWARD_DHT_22, HUMIDITY));
-  
-  return weather.prettyPrintTo(Serial);
-  
-}
 
+  // Then we'll add the sensor values to the object
+  weather["Temperature"] = String(BME.readTemperature());
+  weather["Humidity"] = String(BME.readHumidity());
+  weather["Rainfall"] = String(rainFall);
+  weather["Pressure"] = String(getAirPressureReading());
+  // Create the Nested Array "Wind"
+  // Reference: https://arduinojson.org/api/jsonobject/createnestedobject/
+  JsonObject& wind = weather.createNestedObject("Wind");
+    wind["Direction"] = String(windDirection);
+    wind["Speed"] = String(windSpeed);
+
+  // In order to be interruptated by the Raspberry Pi zero, I will have
+  // To print the above JSON object to SERIAL.
+  return weather.prettyPrintTo(Serial);
+}
 // Outputs the most recent meteorological data to the serial monitor
 void displayLastReading() {
 
   // Increase the Debug counter every time I loop through this function
   DEBUGCOUNTER++;
 
-  // I need to cleanup this function
-  
+  // I need to cleanup this functions
   Serial.println("DEBUG MODE!!!");
   Serial.println();
   Serial.println("Number of loops");
@@ -268,11 +286,10 @@ void displayLastReading() {
   Serial.println("");
   Serial.println("Wind Direction: " + String(windDirection));
   Serial.println("Wind Speed: " + String(windSpeed) + " m/s");
-  Serial.println("Temperature: " + String(BMP.readTemperature()) + " Celsius");
-  Serial.println("Pressure: " + String(BMP.readPressure()) + " Pascal");
-  Serial.println("Humidity: (BME280) " + String(BMP.readHumidity()));
-  Serial.println("Humidity (inside): " + String(getDHTValue(INWARD_DHT_22, HUMIDITY)));
-  Serial.println("Humidity (outside): " + String(getDHTValue(OUTWARD_DHT_22, HUMIDITY)));
+  Serial.println("Temperature: " + String(getTemperatureReading()) + " Celsius");
+  Serial.println("Pressure: " + String(getAirPressureReading()) + " hPa");
+  Serial.println("Humidity: (BME280) " + String(getHumidityReading()) + " %");
+//  Serial.println("Altitude: (BME280) " + (BME.readAltitude()));
   Serial.println("Rainfall: " + String(rainFall) + "mm");
   Serial.println();
 }
@@ -287,8 +304,7 @@ void setup() {
     Serial.println("BEGINNING SETUP");  
   }
   
-  
-  if (!BMP.begin()) {
+  if (!BME.begin()) {
     Serial.println("Could not find the BME280, check the wiring!");
     while (true) 
     {
@@ -329,6 +345,7 @@ void setup() {
   {
     Serial.println("FINISHED SETUP");
   }
+  // Delay for a second to make sure the sensors are active.
   delay(1000);
 
 }
@@ -358,6 +375,25 @@ double getRainFallReading()
   return tempRainFallReading * 0.5;
 }
 
+// Function to return air pressure in hPa from BME280
+double getAirPressureReading()
+{
+  return BME.readPressure() / 100.0F;
+}
+
+// Function to return temperature from BME280
+double getTemperatureReading()
+{
+  return BME.readTemperature();
+}
+
+// Function to return humidity from BME280
+double getHumidityReading()
+{
+  return BME.readHumidity();
+}
+
+
 // Main system loop
 void loop() {
   currentTime = millis(); // Set current time (from when the board began)
@@ -367,15 +403,10 @@ void loop() {
     previousTime = currentTime;
 
     if (recieveDatagram() == true) {
-      yield();
-      // DEBUGGING PURPOSES
-      //Serial.println("ANEMOMETER DATAGRAM IS TRUE");
       get_anemometer_readings(); // Decomposed datagram into its parts: WindDirection and WindSpeed
       translateWindDirection(); // Gets the associated compass direction from its number
     }
     else if (recieveDatagram() == false){
-      // DEBUGGING PURPOSES
-      //Serial.println("ANEMOMETER DATAGRAM IS FALSE");
       windSpeed = -50.00; 
       windDirection = "N/A"; 
     }
@@ -394,7 +425,11 @@ void loop() {
     if (DEBUG == true) {
       displayLastReading();
     }
+    generate_json();
+    // Because the return of the fucntion about can't add a println,
+    Serial.println();
   }
+  
   ESP.wdtFeed(); // Feed the watchdog timer to keep it content
   yield();
 }
