@@ -11,6 +11,12 @@
     Created by Greg Sharpe
 */
 
+// Where yield(); is called is because the ESP8266 module has alot of background
+// tasks to compute, the yield() function is called within loop which may pause
+// the background tasks. Yield simple tells the nodemcu module to carry on with
+// the backgroud tasks, which in turn stop soft resets. 
+
+
 // Included libraries
 #include <DHT.h>
 #include <Adafruit_BME280.h>
@@ -20,12 +26,14 @@
 #define DEBUG true
 int DEBUGCOUNTER = 0;
 
+
 // Anemometer defines
 #define ANEMOMETER_PIN D3
 #define DATAGRAM_SIZE 41 + 5
 
 // Initialise variables
-const long interval = 30000; // Time interval between each reading
+// Setting the interval timers within the loop() function.
+double readingInterval = 30000; // Set the interval to 30 seconds in order to take readings
 unsigned long currentTime = 0; // Current Time
 unsigned long previousTime = 0; // Previous current time
 
@@ -38,7 +46,6 @@ double windSpeed = 0; // Wind speed in metres per second
 // Initialize Temperature, Humidity and Altitude sensors
 // SCL from the BME280 to D1
 // SDA from the BME280 to D2
-
 /*
 // Important! 
 // Modified the below library and changed the I2C address to 0x76 from 0x77.
@@ -65,16 +72,32 @@ enum DHTReadingType {
   HUMIDITY
 };
 
+// RAIN GAUGE
+#define RAIN_GAUGE_PIN D7
+
+// Counts the amount of times the seesaw 'tips'
+// This will get reset at the end of the loop function.
+volatile byte rainGaugeinterruptCounter = 0;
+// Ddebounce time of the rain gauge
+long rainGaugeDebounceTime = 100;
+// Declare the global variable to calculate the amount of rainfall
+double rainFall = 0;
+// Variables to temporary store the amount of rain fall.
+double tempRainFallReading = 0;
+
+
 // Function that retrieves the datagram from the amemometer and places it into a char array
 boolean recieveDatagram() {
  unsigned long duration = 0;
 
   while (digitalRead(ANEMOMETER_PIN) == HIGH) {
     delayMicroseconds(1);
+    yield();
   }
   while (digitalRead(ANEMOMETER_PIN) == LOW) {
     delayMicroseconds(1);
     duration++;
+    yield();
   }
   // Anemometer transmits data every two seconds
   if (duration > 200000) {
@@ -250,6 +273,7 @@ void displayLastReading() {
   Serial.println("Humidity: (BME280) " + String(BMP.readHumidity()));
   Serial.println("Humidity (inside): " + String(getDHTValue(INWARD_DHT_22, HUMIDITY)));
   Serial.println("Humidity (outside): " + String(getDHTValue(OUTWARD_DHT_22, HUMIDITY)));
+  Serial.println("Rainfall: " + String(rainFall) + "mm");
   Serial.println();
 }
 
@@ -270,11 +294,55 @@ void setup() {
   // First Attempt at exporting the values to json
   // Using the arduinojson.org/assistant from the creator of the ArduinoJson library
   JsonObject& weather = jsonBuffer.createObject();
-  
+
+  // Set the anemometer pin to begin reading values
   pinMode(ANEMOMETER_PIN, INPUT); // Initialise anemometer pin as 'input'
+
+  // Rain Gauge
+  // Set the PIN to pull up mode
+  pinMode(RAIN_GAUGE_PIN, INPUT_PULLUP);
+  // Use the digitalPinToInterrupt function to convert the D7 pin to interrupt
+  // Use this if cannot use that function for some reason: https://github.com/esp8266/Arduino/issues/584
+  attachInterrupt(digitalPinToInterrupt(RAIN_GAUGE_PIN), handleRainGaugeInterrupt, FALLING);
+
+  // In debug mode take the readings every 10 seconds instead of 30.
+  if (DEBUG)
+  {
+    // Because the readings get taken every 2 seconds from the
+    // Anenomemter I'm not sure how reducing the iterval will
+    // effect the wind readings.
+    readingInterval = 10000;
+  }
+
+  // DEBUGGING PURPOSES
   Serial.println("FINISHED SETUP");
   delay(1000);
 
+}
+
+// This function will increase the interrupt counter every time a interrupt is send to pin
+// D7/13 (Interrupt pin). 
+void handleRainGaugeInterrupt()
+{
+  currentTime = millis();
+  if (currentTime - previousTime >= rainGaugeDebounceTime) 
+  {
+    previousTime = currentTime;
+    // Increase the counter
+    rainGaugeinterruptCounter++;
+  }
+}
+
+double getRainFallReading()
+{
+  // This function will return the current rain fall measurement
+  tempRainFallReading = rainGaugeinterruptCounter;
+  // The measurement for 'tipping' the seesaw is 0.518mm of water
+  // (according to the manual)
+  // thus I will mulitple the amount of tempRainFallReading by 0.5
+  // This isn't the most accurate method of calculating rain fall,
+  // Maybe I will later investigate a better method.
+  return tempRainFallReading * 0.5;
 }
 
 // Main system loop
@@ -282,7 +350,7 @@ void loop() {
   currentTime = millis(); // Set current time (from when the board began)
  
   // If time since last reading is more than set interval, perform next reading
-  if (currentTime - previousTime >= interval) {
+  if (currentTime - previousTime >= readingInterval) {
     previousTime = currentTime;
 
     if (recieveDatagram() == true) {
@@ -299,7 +367,17 @@ void loop() {
       windDirection = "N/A"; 
     }
     yield();
-        
+
+    // Return the amount of rain fall.
+
+    // Setting the global variable here too much sure the result is  the same
+    // when printing the in debug mode (displayLastReading() function will return rainFall,
+    // Instead of getRainFallReading() function as the may change within that time.)
+    rainFall = getRainFallReading();
+
+    // After the rain fall variable has been set resest the intterupt counter
+    rainGaugeinterruptCounter = 0;
+    
     // Perform when DEBUG flag is set to 'true'
     if (DEBUG == true) {
       displayLastReading();
