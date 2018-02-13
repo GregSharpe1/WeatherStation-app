@@ -281,10 +281,20 @@ void displayLastReading() {
 void setup() {
   
   Serial.begin(115200);
-  Serial.println("BEGINNING SETUP");
+  // DEBUGING PURPOSES
+  if (DEBUG) 
+  {
+    Serial.println("BEGINNING SETUP");  
+  }
+  
+  
   if (!BMP.begin()) {
     Serial.println("Could not find the BME280, check the wiring!");
-    while (1) {}
+    while (true) 
+    {
+      // Stop the loop until the wiring is 'fixed'
+      yield();
+    }
   }
  
   // Start the DHT Modules
@@ -315,7 +325,10 @@ void setup() {
   }
 
   // DEBUGGING PURPOSES
-  Serial.println("FINISHED SETUP");
+  if (DEBUG) 
+  {
+    Serial.println("FINISHED SETUP");
+  }
   delay(1000);
 
 }
@@ -369,7 +382,6 @@ void loop() {
     yield();
 
     // Return the amount of rain fall.
-
     // Setting the global variable here too much sure the result is  the same
     // when printing the in debug mode (displayLastReading() function will return rainFall,
     // Instead of getRainFallReading() function as the may change within that time.)
