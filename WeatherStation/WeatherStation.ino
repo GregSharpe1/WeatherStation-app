@@ -1,9 +1,10 @@
-/*
+ /*
     Weather Station
 
     Sketch for a Aberyswyth University, Computer Science, Major Project
     Retrieves meteorological information from an assorted range of sensors including;
-    an anemometer, rain gauge and two DHT22 temperature/humidity sensors and BME180.
+    an anemometer, rain gauge, Air Pressure/Humidity/Temperature sensor (Indoor) BME280 and 
+    an OUTER temperature sensor DS18B20.
 
     The data is outputted in a standard json format and then passed onto a Raspberry
     Pi Zero for process and eventually sent to AWS IoT Service.
@@ -14,11 +15,10 @@
 // Where yield(); is called is because the ESP8266 module has alot of background
 // tasks to compute, the yield() function is called within loop which may pause
 // the background tasks. Yield simple tells the nodemcu module to carry on with
-// the backgroud tasks, which in turn stop soft resets. 
+// the backgroud tasks, which in turn stops soft resets. 
 
 
 // Included libraries
-#include <DHT.h>
 #include <Adafruit_BME280.h>
 #include <ArduinoJson.h>
 
@@ -54,24 +54,8 @@ double windSpeed = 0; // Wind speed in metres per second
 */
 Adafruit_BME280 BME;
 
-// DHT22 Humidity sensor defines
-#define DHT_TYPE DHT22
-// INWARD (inside the case)
-#define DHT22_INWARD_PIN D4
-// OUTWARD (outside the case)
-#define DHT22_OUTWARD_PIN D5
-
-// Initalize the DHT Sensor
-DHT INWARD_DHT_22(DHT22_INWARD_PIN, DHT_TYPE, 11);
-DHT OUTWARD_DHT_22(DHT22_OUTWARD_PIN, DHT_TYPE, 11);
-
-// Initalize the JSON Buffer to 200 Characters
-StaticJsonBuffer<1500> jsonBuffer;
-
-enum DHTReadingType {
-  TEMPERATURE,
-  HUMIDITY
-};
+// Initalize the JSON Buffer to 512 Characters
+DynamicJsonBuffer jsonBuffer(512);
 
 // RAIN GAUGE
 #define RAIN_GAUGE_PIN D7
@@ -91,17 +75,27 @@ double tempRainFallReading = 0;
 boolean recieveDatagram() {
  unsigned long duration = 0;
 
-  while (digitalRead(ANEMOMETER_PIN) == HIGH) {
-    delayMicroseconds(1);
+  while (digitalRead(ANEMOMETER_PIN) == HIGH)
+  {
     yield();
+    delayMicroseconds(1);
   }
-  while (digitalRead(ANEMOMETER_PIN) == LOW) {
+  
+  while (digitalRead(ANEMOMETER_PIN) == LOW)
+  {
+    yield();
     delayMicroseconds(1);
     duration++;
-    yield();
   }
+
+  if (DEBUG == true)
+  {
+    Serial.println("Duration was: " + String(duration));
+  }
+
+  
   // Anemometer transmits data every two seconds
-  if (duration > 200000) {
+  if (duration > 20000) {
     delayMicroseconds(600); // Go to middle of first bit
     for (int i = 0; i < DATAGRAM_SIZE; i++) {
       anemometerDatagram[i] = digitalRead(ANEMOMETER_PIN);
@@ -113,30 +107,6 @@ boolean recieveDatagram() {
     return false;
   }
 }
-
-
-// Function to return the value from a DHT22 sensor depending on which sensor (there will be multiple)
-// And which reading you would like to take (Humidity or Temperature)
-double getDHTValue(DHT sensor, DHTReadingType type) {
-  double dhtreading;
-  
-  // Take input when calling the Function
-  // Depending on what is called return
-  // the given reading.
-  switch (type) {
-    case TEMPERATURE:
-      dhtreading = sensor.readTemperature();
-      break;
-    case HUMIDITY:
-      dhtreading = sensor.readHumidity();
-      break;
-    default:
-      Serial.println("Please choose one of the following: TEMPERATURE, HUMIDITY");
-      break;
-  }
-  return dhtreading;
-}
-  
 
 // Function that decomposes the datagram of an anemometer into its composed varaibles wind direction and wind speed
 // **Modified from work by Pete Todd cht35@aber.ac.uk**
@@ -182,7 +152,7 @@ void get_anemometer_readings() {
   }
 }
 
-// Determines the wind direction as a compass measurement from the corresponding number
+// Determines the wind direction from the value returned from the Anenometer DATAGRAM
 void translateWindDirection() {
   switch (windDirectionNo) {
     case 0:
@@ -280,24 +250,23 @@ void displayLastReading() {
   // I need to cleanup this functions
   Serial.println("DEBUG MODE!!!");
   Serial.println();
-  Serial.println("Number of loops");
-  Serial.println();
+  Serial.print("Number of loops: ");
   Serial.println(DEBUGCOUNTER);
-  Serial.println("");
+  Serial.println();
   Serial.println("Wind Direction: " + String(windDirection));
   Serial.println("Wind Speed: " + String(windSpeed) + " m/s");
   Serial.println("Temperature: " + String(getTemperatureReading()) + " Celsius");
   Serial.println("Pressure: " + String(getAirPressureReading()) + " hPa");
   Serial.println("Humidity: (BME280) " + String(getHumidityReading()) + " %");
-//  Serial.println("Altitude: (BME280) " + (BME.readAltitude()));
   Serial.println("Rainfall: " + String(rainFall) + "mm");
   Serial.println();
 }
 
 // System set-up
-void setup() {
-  
+void setup()
+{
   Serial.begin(115200);
+
   // DEBUGING PURPOSES
   if (DEBUG) 
   {
@@ -312,10 +281,6 @@ void setup() {
       yield();
     }
   }
- 
-  // Start the DHT Modules
-  INWARD_DHT_22.begin();
-  OUTWARD_DHT_22.begin();
 
   // First Attempt at exporting the values to json
   // Using the arduinojson.org/assistant from the creator of the ArduinoJson library
@@ -337,7 +302,7 @@ void setup() {
     // Because the readings get taken every 2 seconds from the
     // Anenomemter I'm not sure how reducing the iterval will
     // effect the wind readings.
-    readingInterval = 10000;
+    readingInterval = 5000;
   }
 
   // DEBUGGING PURPOSES
@@ -375,7 +340,7 @@ double getRainFallReading()
   return tempRainFallReading * 0.5;
 }
 
-// Function to return air pressure in hPa from BME280
+// Function to return air pressure in "hPa" from BME280
 double getAirPressureReading()
 {
   return BME.readPressure() / 100.0F;
@@ -395,23 +360,25 @@ double getHumidityReading()
 
 
 // Main system loop
-void loop() {
-  currentTime = millis(); // Set current time (from when the board began)
+void loop()
+{
+  currentTime = millis(); // Set current time
  
   // If time since last reading is more than set interval, perform next reading
   if (currentTime - previousTime >= readingInterval) {
     previousTime = currentTime;
 
-    if (recieveDatagram() == true) {
+    if (recieveDatagram() == true)
+    {
       get_anemometer_readings(); // Decomposed datagram into its parts: WindDirection and WindSpeed
       translateWindDirection(); // Gets the associated compass direction from its number
     }
-    else if (recieveDatagram() == false){
+    else if (recieveDatagram() == false)
+    {
       windSpeed = -50.00; 
       windDirection = "N/A"; 
     }
     yield();
-
     // Return the amount of rain fall.
     // Setting the global variable here too much sure the result is  the same
     // when printing the in debug mode (displayLastReading() function will return rainFall,
@@ -429,7 +396,6 @@ void loop() {
     // Because the return of the fucntion about can't add a println,
     Serial.println();
   }
-  
-  ESP.wdtFeed(); // Feed the watchdog timer to keep it content
+  ESP.wdtFeed(); // Feed the WDT
   yield();
 }
