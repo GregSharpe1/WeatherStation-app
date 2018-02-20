@@ -1,1 +1,3 @@
 config
+# Ignore all vscode output, because they will depend on plugins and so on...
+.vscode/*
