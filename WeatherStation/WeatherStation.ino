@@ -17,6 +17,15 @@
 // the background tasks. Yield simple tells the nodemcu module to carry on with
 // the backgroud tasks, which in turn stops soft resets. 
 
+// CODE BASE LAYOUT
+// ALL defines/vars/inclues
+// RAIN 
+// Anenomemter
+// BME280
+// JSON
+// DEBUG PRINT
+// setup
+// Loop
 
 // Included libraries
 #include <Adafruit_BME280.h>
@@ -70,6 +79,36 @@ double rainFall = 0;
 // Variables to temporary store the amount of rain fall.
 double tempRainFallReading = 0;
 
+
+////////////////////////////////////////////// RAIN GAUGE ////////////////////////////////////////////////////
+
+// This function will increase the interrupt counter every time a interrupt is send to pin
+// D7/13 (Interrupt pin). 
+void handleRainGaugeInterrupt()
+{
+  currentTime = millis();
+  if (currentTime - previousTime >= rainGaugeDebounceTime) 
+  {
+    previousTime = currentTime;
+    // Increase the counter
+    rainGaugeinterruptCounter++;
+  }
+}
+
+double getRainFallReading()
+{
+  // This function will return the current rain fall measurement
+  tempRainFallReading = rainGaugeinterruptCounter;
+  // The measurement for 'tipping' the seesaw is 0.518mm of water
+  // (according to the manual)
+  // thus I will mulitple the amount of tempRainFallReading by 0.5
+  // This isn't the most accurate method of calculating rain fall,
+  // Maybe I will later investigate a better method.
+  return tempRainFallReading * 0.5;
+}
+
+//////////]
+//////////////////////////////////// WIND GAUGE ////////////////////////////////////////////////////
 
 // Function that retrieves the datagram from the amemometer and places it into a char array
 boolean recieveDatagram() {
@@ -206,6 +245,28 @@ void translateWindDirection() {
   }
 }
 
+////////////////////////////////////////////// BME280 ////////////////////////////////////////////////////
+
+// Function to return air pressure in "hPa" from BME280
+double getAirPressureReading()
+{
+  return BME.readPressure() / 100.0F;
+}
+
+// Function to return temperature from BME280
+double getTemperatureReading()
+{
+  return BME.readTemperature();
+}
+
+// Function to return humidity from BME280
+double getHumidityReading()
+{
+  return BME.readHumidity();
+}
+
+
+////////////////////////////////////////////// JSON ////////////////////////////////////////////////////
 double generate_json()
 {
   //     Assuming the JSON Object is laid out like:
@@ -241,6 +302,9 @@ double generate_json()
   // To print the above JSON object to SERIAL.
   return weather.prettyPrintTo(Serial);
 }
+
+////////////////////////////////////////////// DEBUG MODE ////////////////////////////////////////////////////
+
 // Outputs the most recent meteorological data to the serial monitor
 void displayLastReading() {
 
@@ -261,6 +325,9 @@ void displayLastReading() {
   Serial.println("Rainfall: " + String(rainFall) + "mm");
   Serial.println();
 }
+
+
+////////////////////////////////////////////// SETUP ////////////////////////////////////////////////////
 
 // System set-up
 void setup()
@@ -315,49 +382,7 @@ void setup()
 
 }
 
-// This function will increase the interrupt counter every time a interrupt is send to pin
-// D7/13 (Interrupt pin). 
-void handleRainGaugeInterrupt()
-{
-  currentTime = millis();
-  if (currentTime - previousTime >= rainGaugeDebounceTime) 
-  {
-    previousTime = currentTime;
-    // Increase the counter
-    rainGaugeinterruptCounter++;
-  }
-}
-
-double getRainFallReading()
-{
-  // This function will return the current rain fall measurement
-  tempRainFallReading = rainGaugeinterruptCounter;
-  // The measurement for 'tipping' the seesaw is 0.518mm of water
-  // (according to the manual)
-  // thus I will mulitple the amount of tempRainFallReading by 0.5
-  // This isn't the most accurate method of calculating rain fall,
-  // Maybe I will later investigate a better method.
-  return tempRainFallReading * 0.5;
-}
-
-// Function to return air pressure in "hPa" from BME280
-double getAirPressureReading()
-{
-  return BME.readPressure() / 100.0F;
-}
-
-// Function to return temperature from BME280
-double getTemperatureReading()
-{
-  return BME.readTemperature();
-}
-
-// Function to return humidity from BME280
-double getHumidityReading()
-{
-  return BME.readHumidity();
-}
-
+////////////////////////////////////////////// LOOP ////////////////////////////////////////////////////
 
 // Main system loop
 void loop()
