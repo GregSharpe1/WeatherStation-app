@@ -30,13 +30,25 @@
 // Included libraries
 #include <Adafruit_BME280.h>
 #include <ArduinoJson.h>
+// The below are for the outdoor temperature (DS18B20)
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // Debug flag
 // When DEBUG is FALSE only the JSON output shall be printed to Serial
 // in order for the Raspberry Pi to read.
-#define DEBUG_BUTTON_PIN D4
 #define DEBUG false
 int DEBUGCOUNTER = 0;
+
+// OUTDOOR temperature sensor (http://www.hobbytronics.co.uk/ds18b20-arduino)
+// Connected as:
+// Green wire -> to pin
+// Red wire -> to positive
+// yellow wire -> to negative
+#define OUTDOOR_TEMPERATURE_PIN D4
+// Initalize a one wire object
+OneWire oneWire(OUTDOOR_TEMPERATURE_PIN);
+DallasTemperature sensors(&oneWire);
 
 // Anemometer defines
 #define ANEMOMETER_PIN D3
@@ -254,7 +266,7 @@ double getAirPressureReading()
 }
 
 // Function to return temperature from BME280
-double getTemperatureReading()
+double getIndoorTemperatureReading()
 {
   return BME.readTemperature();
 }
@@ -265,6 +277,14 @@ double getHumidityReading()
   return BME.readHumidity();
 }
 
+////////////////////////////////////////// OUTDOOR TEMP (DS18B20) ////////////////////////////////////////////////
+
+double getOutdoorTemperatureReading()
+{
+  // Incase I choose to later add more of these sensors
+  // make sure we return the first instance of the DS18B20 reading.
+  return sensors.getTempCByIndex(0);
+}
 
 ////////////////////////////////////////////// JSON ////////////////////////////////////////////////////
 double generate_json()
@@ -288,8 +308,9 @@ double generate_json()
   JsonObject& weather = jsonBuffer.createObject();
 
   // Then we'll add the sensor values to the object
-  weather["Temperature"] = String(BME.readTemperature());
-  weather["Humidity"] = String(BME.readHumidity());
+  weather["Temperature (Indoor)"] = String(getIndoorTemperatureReading());
+  weather["Temperature (Outdoor)"] = String(getOutdoorTemperatureReading());
+  weather["Humidity"] = String(getHumidityReading());
   weather["Rainfall"] = String(rainFall);
   weather["Pressure"] = String(getAirPressureReading());
   // Create the Nested Array "Wind"
@@ -319,7 +340,7 @@ void displayLastReading() {
   Serial.println();
   Serial.println("Wind Direction: " + String(windDirection));
   Serial.println("Wind Speed: " + String(windSpeed) + " m/s");
-  Serial.println("Temperature: " + String(getTemperatureReading()) + " Celsius");
+  Serial.println("Temperature (Indoor): " + String(getIndoorTemperatureReading()) + " Celsius");
   Serial.println("Pressure: " + String(getAirPressureReading()) + " hPa");
   Serial.println("Humidity: (BME280) " + String(getHumidityReading()) + " %");
   Serial.println("Rainfall: " + String(rainFall) + "mm");
@@ -362,6 +383,9 @@ void setup()
   // Use this if cannot use that function for some reason: https://github.com/esp8266/Arduino/issues/584
   attachInterrupt(digitalPinToInterrupt(RAIN_GAUGE_PIN), handleRainGaugeInterrupt, FALLING);
 
+  // Begin the dallas temp sensor using the sensor object
+  sensors.begin();
+
   // In debug mode take the readings every 10 seconds instead of 30.
   if (DEBUG)
   {
@@ -369,13 +393,9 @@ void setup()
     // Anenomemter I'm not sure how reducing the iterval will
     // effect the wind readings.
     readingInterval = 5000;
+    Serial.println("FINISHED SETUP");  
   }
 
-  // DEBUGGING PURPOSES
-  if (DEBUG) 
-  {
-    Serial.println("FINISHED SETUP");
-  }
   // Delay for a second to make sure the sensors are active.
   delay(1000);
 
