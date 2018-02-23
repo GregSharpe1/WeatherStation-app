@@ -35,11 +35,8 @@
 // When DEBUG is FALSE only the JSON output shall be printed to Serial
 // in order for the Raspberry Pi to read.
 #define DEBUG_BUTTON_PIN D4
-bool DEBUG;
-int previousButtonState = 0;
+#define DEBUG false
 int DEBUGCOUNTER = 0;
-volatile byte debugButtonState = 0;
-long debugButtonDebounce = 100;
 
 // Anemometer defines
 #define ANEMOMETER_PIN D3
@@ -329,17 +326,6 @@ void displayLastReading() {
   Serial.println();
 }
 
-void handleDebugInterrupt() 
-{
-  currentTime = millis();
-  if (currentTime - previousTime >= debugButtonDebounce)
-  {
-    previousTime = currentTime;
-
-    debugButtonState++;
-  }
-}
-
 ////////////////////////////////////////////// SETUP ////////////////////////////////////////////////////
 
 // System set-up
@@ -376,11 +362,6 @@ void setup()
   // Use this if cannot use that function for some reason: https://github.com/esp8266/Arduino/issues/584
   attachInterrupt(digitalPinToInterrupt(RAIN_GAUGE_PIN), handleRainGaugeInterrupt, FALLING);
 
-  // Now add the debug functionalilty to the button
-  pinMode(DEBUG_BUTTON_PIN, INPUT_PULLUP);
-  // Only call the handleDebugInterrupt function when the button is HIGH
-  attachInterrupt(digitalPinToInterrupt(DEBUG_BUTTON_PIN), handleDebugInterrupt, HIGH);
-
   // In debug mode take the readings every 10 seconds instead of 30.
   if (DEBUG)
   {
@@ -407,16 +388,6 @@ void loop()
 {
   currentTime = millis(); // Set current time
 
-  // Check the debug button has been pressed
-  // Read the button state
-  debugButtonState = digitalRead(DEBUG_BUTTON_PIN);
-
-  // If the debug button has been pressed change the value of the DEBUG define
-  if (debugButtonState != previousButtonState)
-  {
-    Serial.println("Changing the DEBUG mode");
-    DEBUG = true;
-  }
   // If time since last reading is more than set interval, perform next reading
   if (currentTime - previousTime >= readingInterval) {
     previousTime = currentTime;
@@ -451,4 +422,5 @@ void loop()
   }
   ESP.wdtFeed(); // Feed the WDT
   yield();
+
 }
