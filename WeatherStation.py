@@ -18,6 +18,16 @@ DEFAULT_TOPIC = "WeatherStation"
 # ESP8266 Attached
 ESP8266_BRAD_RATE="115200"
 
+# Create and configure logger
+LOG_FILE = "/home/pi/weather_station_test.log"
+LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
+# Setup a basic configuration logger with a DEBUG level.
+# This means that messages will get written with a level 20 or above.
+# Examplained well here: https://www.youtube.com/watch?v=g8nQ90Hk328
+logging.basicConfig(filename = LOG_FILE, level = logging.DEBUG, format = LOG_FORMAT)
+# Root logger  
+logger = logging.getLogger()
+
 def usage():
     """Return the help/usage output for the WeatherStation application."""
     print "WeatherStation application - Greg Sharpe (gds2)"
@@ -107,6 +117,8 @@ def main():
         # Log that the application has been run to send info to AWS.
         print "Publishing results to AWS."
         configure_and_publish_to_aws_iot()
+        logger.info("Beginning to publish to AWS IoT.")
+        logger.debug("Using: {} endpoint, {} privateKey path, {} certificate path and {} root CA path.".format(endpoint, privateKey, certificate, rootCA))
     else:
         print_to_display()
 
@@ -135,6 +147,7 @@ def get_esp8266_serial_port():
     # Attempt to connect to the port
     try:
         s = serial.Serial(port)
+        logger.info("Connected on port: {}".format(port))    
         s.close()
     except (OSError, serial.SerialException):
         pass
@@ -279,8 +292,12 @@ def configure_and_publish_to_aws_iot():
         # If the topic is not set use the DEFAULT_TOPIC vars
         if 'topic' in globals():
             IoTClient.publish(topic, messageJson, 1)
+            # Call the logger
+            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, topic))  
         else:
             IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+            # call the logger.
+            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, DEFAULT_TOPIC))            
 
         # Wait for oen second
         time.sleep(1)
