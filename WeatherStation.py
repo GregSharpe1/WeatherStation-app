@@ -131,34 +131,96 @@ def get_esp8266_serial_port():
         pass
     return port
 
-
+# The function below needs to read from a serial port the entire block of JSON
+# Up until an new line.
 def read_from_serial():
     """This function will take input from the ESP8266 device attached via USB"""
     # Let's first initialise the connect with Serial library
     serial_connection_to_esp8266 = serial.Serial(get_esp8266_serial_port(), ESP8266_BRAD_RATE)
+
+    weather_readings_array = []
+    # This function must run a while loop and break in the '\n' character is found
+    while True:
+        # Read the value
+        value = serial_connection_to_esp8266.readline().strip('\n')
+        # Append the value to an array if not '/n'
+        # Begin reading if the value is '[['
+        if "]]" in value:
+            break
+        else:
+            weather_readings_array.append(value)
+        
     # return the serial output line by line
-    return serial_connection_to_esp8266.readlines()
+    return weather_readings_array
+
+def parse_serial_output():
+    """This function will break down the input from the serial port
+       and return a completed JSON object ready to be sent to the
+       AWS IoT service
+    """
+
+    # Define global varaibles to store the readings
+    # call them in here because I don't want these
+    # variables declared without using this function.
+    global temp_reading1
+    global temp_reading2
+    global humd_reading1
+    global airp_reading1
+    global rain_reading1
+    global wind_dir_reading1
+    global wind_spd_reading1
+
+    weather_readings = read_from_serial()
 
 
-def get_sensor_value(attribute):
-    """A function to return values based on function input."""
-    # Assuming the JSON Object is laid out like:
-    # { 
-    #     "temperature": "20.0"
-    #     "humidity": "20.0"
-    #     "air pressure": "20.0"
-    #     "altitude": "20.0"
-    #     "wind": {
-    #         "speed": "20.0",
-    #         "direction": "NNW"
-    #         }
-    # }
-    # Read from the above returning a value.
-    with open("weather_example.json") as json_data_file:
-        data = json.load(json_data_file)
-        attribute_val = data.get(attribute)
-    return attribute_val
+    for i in weather_readings:
+        # A messy if statement placing the readings into vars
+        if "TEMP1" in i:
+            temp_reading1 = strip_serial_output(i)
+        elif "TEMP2" in i:
+            temp_reading2 = strip_serial_output(i)
+        elif "HUMD1"  in i:
+            humd_reading1 = strip_serial_output(i)
+        elif "AIRP1" in i:
+            airp_reading1 = strip_serial_output(i)
+        elif "RAIN1" in i:
+            rain_reading1 = strip_serial_output(i)
+        elif "WNDDIR1" in i:
+            wind_dir_reading1 = strip_serial_output(i)
+        elif "WNDSPD1" in i:
+            wind_spd_reading1 = strip_serial_output(i)
 
+def strip_serial_output(value):
+    """This function will be used to strip the serial output
+       into a usable format
+       
+       E.g TEMP1: 22.0 -> 22.0"""
+    
+    # First of all let's strip all white space and return characters
+    temp_result = value.strip()
+    # After removing whitre space and return characters
+    # Remove everything before the ":" character.
+    temp_result = temp_result.split(": ")[1]
+    return temp_result
+
+def build_json_object():
+    """This function will initalize a JSON object holding weather information"""
+    
+    # Make sure the global vars are initalized
+    parse_serial_output()
+    
+    readings = {}
+    readings['Time'] = time.time()
+    readings['Temperature (Outdoor)'] = temp_reading1
+    readings['Temperature (Indoor)'] = temp_reading2
+    readings['Humidity'] = humd_reading1
+    readings['Air Pressure'] = airp_reading1
+    readings['Rain Fall'] = rain_reading1
+    readings['Wind Dir'] = wind_dir_reading1
+    readings['Wind Speed'] = wind_spd_reading1
+
+    # Return the readings in JSON format
+    return json.dumps(readings)
 
 def configure_aws_iot_connection():
     """Configure the connection to AWS IoT service"""
@@ -180,5 +242,4 @@ def configure_aws_iot_connection():
     # Using the AWSIoTMQTTClient's connect method
     IoTClient.connect()
 
-while True:
-    print read_from_serial()
+main()
