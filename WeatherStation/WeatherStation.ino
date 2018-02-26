@@ -6,7 +6,7 @@
     an anemometer, rain gauge, Air Pressure/Humidity/Temperature sensor (Indoor) BME280 and 
     an OUTER temperature sensor DS18B20.
 
-    The data is outputted in a standard json format and then passed onto a Raspberry
+    The data is outputted in a standard format and then passed onto a Raspberry
     Pi Zero for process and eventually sent to AWS IoT Service.
 
     Created by Greg Sharpe
@@ -22,20 +22,19 @@
 // RAIN 
 // Anenomemter
 // BME280
-// JSON
 // DEBUG PRINT
 // setup
 // Loop
 
 // Included libraries
 #include <Adafruit_BME280.h>
-#include <ArduinoJson.h>
+
 // The below are for the outdoor temperature (DS18B20)
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 // Debug flag
-// When DEBUG is FALSE only the JSON output shall be printed to Serial
+// When DEBUG is FALSE only the reading output shall be printed to Serial
 // in order for the Raspberry Pi to read.
 #define DEBUG false
 int DEBUGCOUNTER = 0;
@@ -75,9 +74,6 @@ double windSpeed = 0; // Wind speed in metres per second
 // As per comment here: https://arduinotronics.blogspot.co.uk/2017/06/esp8266-bme280-weather-station.html (bottom half of the page)
 */
 Adafruit_BME280 BME;
-
-// Initalize the JSON Buffer to 512 Characters
-DynamicJsonBuffer jsonBuffer(512);
 
 // RAIN GAUGE
 #define RAIN_GAUGE_PIN D7
@@ -286,43 +282,6 @@ double getOutdoorTemperatureReading()
   return sensors.getTempCByIndex(0);
 }
 
-////////////////////////////////////////////// JSON ////////////////////////////////////////////////////
-double generate_json()
-{
-  //     Assuming the JSON Object is laid out like:
-  //           { "location":
-  //               { "Aberystwyth": { 
-  //                   "temperature": "20.0"
-  //                   "humidity": "20.0"
-  //                   "air pressure": "20.0"
-  //                   "altitude": "20.0"
-  //                   "wind": {
-  //                       "speed": "20.0",
-  //                       "direction": "NNW"
-  //                       }
-  //                   }
-  //               }
-  //           }
-  
-  // First we'll create the JSON object with the name 'weather'
-  JsonObject& weather = jsonBuffer.createObject();
-
-  // Then we'll add the sensor values to the object
-  weather["Temperature (Indoor)"] = String(getIndoorTemperatureReading());
-  weather["Temperature (Outdoor)"] = String(getOutdoorTemperatureReading());
-  weather["Humidity"] = String(getHumidityReading());
-  weather["Rainfall"] = String(rainFall);
-  weather["Pressure"] = String(getAirPressureReading());
-  // Create the Nested Array "Wind"
-  // Reference: https://arduinojson.org/api/jsonobject/createnestedobject/
-  JsonObject& wind = weather.createNestedObject("Wind");
-    wind["Direction"] = String(windDirection);
-    wind["Speed"] = String(windSpeed);
-
-  // In order to be interruptated by the Raspberry Pi zero, I will have
-  // To print the above JSON object to SERIAL.
-  return weather.prettyPrintTo(Serial);
-}
 
 ////////////////////////////////////////////// DEBUG MODE ////////////////////////////////////////////////////
 
@@ -330,7 +289,7 @@ double generate_json()
 void displayLastReading() {
 
   // Increase the Debug counter every time I loop through this function
-  if (DEGUG)
+  if (DEBUG)
   {
     DEBUGCOUNTER++;
     Serial.print("Number of loops: ");
@@ -338,10 +297,14 @@ void displayLastReading() {
     Serial.println();
   }
   
-  // I need to cleanup this functions
-  Serial.println("TEMP1 " + String(getIndoorTemperatureReading());
-  Serial.println("TEMP2" + String(getOutdoorTemperatureReading()));
-  Serial.println("HUMD1" + String(getHumidityReading());  
+  // The following will be printed to the serial monitor.
+  // Has tp be in the following format.
+  //
+  // SENSOR(NUM)[COLON][SPACE][VALUE] 
+  // This will ensure the values are read correctly within the python script
+  Serial.println("TEMP1: " + String(getIndoorTemperatureReading()));
+  Serial.println("TEMP2: " + String(getOutdoorTemperatureReading()));
+  Serial.println("HUMD1: " + String(getHumidityReading()));  
   Serial.println("AIRP1: " + String(getAirPressureReading()));
   Serial.println("RAIN1: " + String(rainFall));
   Serial.println("WNDDIR1: "+ String(windDirection));
@@ -370,10 +333,6 @@ void setup()
       yield();
     }
   }
-
-  // First Attempt at exporting the values to json
-  // Using the arduinojson.org/assistant from the creator of the ArduinoJson library
-  JsonObject& weather = jsonBuffer.createObject();
 
   // Set the anemometer pin to begin reading values
   pinMode(ANEMOMETER_PIN, INPUT); // Initialise anemometer pin as 'input'
@@ -431,14 +390,13 @@ void loop()
     // Instead of getRainFallReading() function as the may change within that time.)
     rainFall = getRainFallReading();
 
+    // request a readding from the ds18b20 sensor
+    sensors.requestTemperatures();
+
     // After the rain fall variable has been set resest the intterupt counter
     rainGaugeinterruptCounter = 0;
     
-    // Perform when DEBUG flag is set to 'true'
-    if (DEBUG) {
-      displayLastReading();
-    }
-    generate_json();
+    displayLastReading();
   }
   ESP.wdtFeed(); // Feed the WDT
   yield();

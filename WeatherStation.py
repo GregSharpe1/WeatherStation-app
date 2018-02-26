@@ -101,6 +101,14 @@ def main():
         else:
             assert False, "ERROR: Unhandled option."
 
+    # If the global variables have been set publish the results to AWS
+    if 'rootCA' and 'endpoint' and 'privateKey' and 'certificate' in globals():
+        # Log that the application has been run to send info to AWS.
+        print "Publishing results to AWS."
+        configure_and_publish_to_aws_iot()
+    else:
+        print_to_display()
+
 # Slightly modified from: https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
 def get_esp8266_serial_port():
     """ Find, Test and Return the correct port
@@ -172,7 +180,6 @@ def parse_serial_output():
 
     weather_readings = read_from_serial()
 
-
     for i in weather_readings:
         # A messy if statement placing the readings into vars
         if "TEMP1" in i:
@@ -211,8 +218,8 @@ def build_json_object():
     
     readings = {}
     readings['Time'] = time.time()
-    readings['Temperature (Outdoor)'] = temp_reading1
-    readings['Temperature (Indoor)'] = temp_reading2
+    readings['Temperature (Indoor)'] = temp_reading1
+    readings['Temperature (Outdoor)'] = temp_reading2
     readings['Humidity'] = humd_reading1
     readings['Air Pressure'] = airp_reading1
     readings['Rain Fall'] = rain_reading1
@@ -222,7 +229,30 @@ def build_json_object():
     # Return the readings in JSON format
     return json.dumps(readings)
 
-def configure_aws_iot_connection():
+def print_to_display():
+    """A function for debugging purposes, will output all debug to screen."""
+
+    print "ESP Port: " + get_esp8266_serial_port()
+    print ""
+    print "Reading from serial function return: " 
+    print read_from_serial()
+    print ""
+    print "Parse serial output: "
+    print parse_serial_output()
+    print "Printing (and stripped) variables generated from above!!"
+    print temp_reading1
+    print temp_reading2
+    print humd_reading1
+    print airp_reading1
+    print rain_reading1
+    print wind_dir_reading1
+    print wind_spd_reading1
+    print ""
+    print ""
+    print "JSON Output: " 
+    print build_json_object()
+
+def configure_and_publish_to_aws_iot():
     """Configure the connection to AWS IoT service"""
     # See documentation: https://github.com/aws/aws-iot-device-sdk-python#id3
     # Connect to the AWS IoT service
@@ -241,5 +271,18 @@ def configure_aws_iot_connection():
 
     # Using the AWSIoTMQTTClient's connect method
     IoTClient.connect()
+
+    while True:
+        # Now convert the message to json in order to send it too AWS
+        messageJson = build_json_object()
+        # If the topic is not set use the DEFAULT_TOPIC vars
+        if 'topic' in globals():
+            IoTClient.publish(topic, messageJson, 1)
+        else:
+            IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
+
+        # Wait for oen second
+        time.sleep(1)
+
 
 main()
