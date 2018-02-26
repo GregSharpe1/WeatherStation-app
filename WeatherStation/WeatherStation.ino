@@ -330,21 +330,23 @@ double generate_json()
 void displayLastReading() {
 
   // Increase the Debug counter every time I loop through this function
-  DEBUGCOUNTER++;
-
+  if (DEGUG)
+  {
+    DEBUGCOUNTER++;
+    Serial.print("Number of loops: ");
+    Serial.println(DEBUGCOUNTER);
+    Serial.println();
+  }
+  
   // I need to cleanup this functions
-  Serial.println("DEBUG MODE!!!");
-  Serial.println();
-  Serial.print("Number of loops: ");
-  Serial.println(DEBUGCOUNTER);
-  Serial.println();
-  Serial.println("Wind Direction: " + String(windDirection));
-  Serial.println("Wind Speed: " + String(windSpeed) + " m/s");
-  Serial.println("Temperature (Indoor): " + String(getIndoorTemperatureReading()) + " Celsius");
-  Serial.println("Pressure: " + String(getAirPressureReading()) + " hPa");
-  Serial.println("Humidity: (BME280) " + String(getHumidityReading()) + " %");
-  Serial.println("Rainfall: " + String(rainFall) + "mm");
-  Serial.println();
+  Serial.println("TEMP1 " + String(getIndoorTemperatureReading());
+  Serial.println("TEMP2" + String(getOutdoorTemperatureReading()));
+  Serial.println("HUMD1" + String(getHumidityReading());  
+  Serial.println("AIRP1: " + String(getAirPressureReading()));
+  Serial.println("RAIN1: " + String(rainFall));
+  Serial.println("WNDDIR1: "+ String(windDirection));
+  Serial.println("WNDSPD1: "+ String(windSpeed));
+  Serial.println("]]");
 }
 
 ////////////////////////////////////////////// SETUP ////////////////////////////////////////////////////
@@ -437,8 +439,6 @@ void loop()
       displayLastReading();
     }
     generate_json();
-    // Because the return of the fucntion about can't add a println,
-    Serial.println();
   }
   ESP.wdtFeed(); // Feed the WDT
   yield();
