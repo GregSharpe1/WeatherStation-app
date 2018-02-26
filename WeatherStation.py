@@ -6,6 +6,7 @@ import json
 import time
 import serial
 import glob
+import logging
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
