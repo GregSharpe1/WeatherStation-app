@@ -293,7 +293,7 @@ def configure_and_publish_to_aws_iot():
         if 'topic' in globals():
             IoTClient.publish(topic, messageJson, 1)
             # Call the logger
-            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, topic))
+            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, topic))  
         else:
             IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
             # call the logger.
