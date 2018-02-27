@@ -231,7 +231,6 @@ def build_json_object():
     parse_serial_output()
     
     readings = {}
-    readings['Time'] = time.time()
     readings['Temperature (Indoor)'] = temp_reading1
     readings['Temperature (Outdoor)'] = temp_reading2
     readings['Humidity'] = humd_reading1
