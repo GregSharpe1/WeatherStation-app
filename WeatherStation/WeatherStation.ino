@@ -55,7 +55,7 @@ DallasTemperature sensors(&oneWire);
 
 // Initialise variables
 // Setting the interval timers within the loop() function.
-double readingInterval = 30000; // Set the interval to 30 seconds in order to take readings
+double readingInterval = 300000; // Set the interval to 30 seconds in order to take readings
 unsigned long currentTime = 0; // Current Time
 unsigned long previousTime = 0; // Previous current time
 

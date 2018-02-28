@@ -270,11 +270,15 @@ def configure_and_publish_to_aws_iot():
     # See documentation: https://github.com/aws/aws-iot-device-sdk-python#id3
     # Connect to the AWS IoT service
 
-    # TODO: TESTING_CLIENT_ID Change me!
-    IoTClient = AWSIoTMQTTClient("TESTING_CLIENT_ID")
+    # After being a little confused as to why I need a client_id
+    # found this: https://forums.aws.amazon.com/thread.jspa?threadID=219513
+    # Therefore the client id is just used to uniquely identify the MQTT connection.
+    IoTClient = AWSIoTMQTTClient("WeatherStation-aberystwyth")
     IoTClient.configureEndpoint(endpoint, 8883)
     IoTClient.configureCredentials(rootCA, privateKey, certificate)
-
+    # log the files used
+    logger.info("Using {} root path, {} certificate path and {} private key path.".format(rootCA, certificate, privateKey))
+    
     # AWSIoTMQTTClient connection configuration
     IoTClient.configureAutoReconnectBackoffTime(1, 32, 20)
     IoTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
@@ -283,7 +287,9 @@ def configure_and_publish_to_aws_iot():
     IoTClient.configureMQTTOperationTimeout(5) # 5 sec
 
     # Using the AWSIoTMQTTClient's connect method
+    logger.info("Attempting to connect to the AWS IoT Service.")
     IoTClient.connect()
+    logger.info("Connected to the AWS IoT service.")
 
     while True:
         # Now convert the message to json in order to send it too AWS
@@ -299,6 +305,7 @@ def configure_and_publish_to_aws_iot():
             logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, DEFAULT_TOPIC))            
 
         # Wait for oen second
+        logger.info("Waiting for one second")
         time.sleep(1)
 
 
