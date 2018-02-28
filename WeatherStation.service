@@ -1,5 +1,5 @@
 [Unit]
-Description=Weather Station pusing information to AWS IoT
+Description=Weather Station pushing information to AWS IoT
 
 [Service]
 Type=simple
