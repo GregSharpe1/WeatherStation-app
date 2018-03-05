@@ -11,6 +11,6 @@
 # And the below option is to push the sensory information to AWS IoT using the private key, root ca endpoint and certificate
 
 # During the deployment I will export the path of the privatekey, rootca, endpoint and certificate. 
-/opt/WeatherStation-app/WeatherStation.py -e ${ENDPOINT} -r ${ROOTCA} -c ${CERTIFICATION} -k ${PRIVATEKEY}
+/usr/bin/python2 /opt/WeatherStation-app/WeatherStation.py -e ${ENDPOINT} -r ${ROOTCA_KEY_PATH} -c ${CERTIFICATE_KEY_PATH} -k ${PRIVATE_KEY_KEY_PATH}
 
 # Complete
