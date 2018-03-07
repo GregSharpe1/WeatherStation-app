@@ -8,6 +8,10 @@
 # There are two ways to run this script. One for testing (./WeatherStation.py -d | ./WeatherStation.py --debug)
 # DEBUG will just be used to print the sensory information to the terminal.
 
+# EXPORT THE CURRENT CONFIG IF EXISTS
+[[ -r /opt/WeatherStation-app/config ]] && \
+    source /opt/WeatherStation-app/config
+
 # And the below option is to push the sensory information to AWS IoT using the private key, root ca endpoint and certificate
 
 # During the deployment I will export the path of the privatekey, rootca, endpoint and certificate. 
