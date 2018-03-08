@@ -32,11 +32,12 @@
 // The below are for the outdoor temperature (DS18B20)
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include "DHT.h"
 
 // Debug flag
 // When DEBUG is FALSE only the reading output shall be printed to Serial
 // in order for the Raspberry Pi to read.
-#define DEBUG false
+#define DEBUG true
 int DEBUGCOUNTER = 0;
 
 // OUTDOOR temperature sensor (http://www.hobbytronics.co.uk/ds18b20-arduino)
@@ -50,7 +51,7 @@ OneWire oneWire(OUTDOOR_TEMPERATURE_PIN);
 DallasTemperature sensors(&oneWire);
 
 // Anemometer defines
-#define ANEMOMETER_PIN D3
+#define ANEMOMETER_PIN D5
 #define DATAGRAM_SIZE 41 + 5
 
 // Initialise variables
@@ -65,6 +66,15 @@ unsigned int windDirectionNo = 0; // Wind direction in bit value
 String windDirection = ""; // Wind direction as compass direction
 double windSpeed = 0; // Wind speed in metres per second
 
+// DHT22
+# define DHT_PIN D7
+
+//#define DHT_TYPE DHT11 // DHT 11
+#define DHT_TYPE DHT22 // DHT 22 (AM3202)
+//#define DHT_TYPE DHT21 // DHT 21 (AM2301)
+
+DHT dht(DHT_PIN, DHT_TYPE);
+
 // Initialize Temperature, Humidity and Altitude sensors
 // SCL from the BME280 to D1
 // SDA from the BME280 to D2
@@ -76,7 +86,7 @@ double windSpeed = 0; // Wind speed in metres per second
 Adafruit_BME280 BME;
 
 // RAIN GAUGE
-#define RAIN_GAUGE_PIN D7
+#define RAIN_GAUGE_PIN D6
 
 // Counts the amount of times the seesaw 'tips'
 // This will get reset at the end of the loop function.
@@ -268,11 +278,19 @@ double getIndoorTemperatureReading()
 }
 
 // Function to return humidity from BME280
-double getHumidityReading()
+double getHumidityReading1()
 {
   return BME.readHumidity();
 }
 
+////////////////////////////////////////// OUTDOOR HUM (DHT22) ////////////////////////////////////////////////
+
+double getHumidityReading2()
+{
+  // the dht22 can only take readings every 2 seconds therefore:
+  delay(2000);
+  return dht.readHumidity();
+}
 ////////////////////////////////////////// OUTDOOR TEMP (DS18B20) ////////////////////////////////////////////////
 
 double getOutdoorTemperatureReading()
@@ -304,7 +322,8 @@ void displayLastReading() {
   // This will ensure the values are read correctly within the python script
   Serial.println("TEMP1: " + String(getIndoorTemperatureReading()));
   Serial.println("TEMP2: " + String(getOutdoorTemperatureReading()));
-  Serial.println("HUMD1: " + String(getHumidityReading()));  
+  Serial.println("HUMD1: " + String(getHumidityReading1()));  
+  Serial.println("HUMD2: " + String(getHumidityReading2()));
   Serial.println("AIRP1: " + String(getAirPressureReading()));
   Serial.println("RAIN1: " + String(rainFall));
   Serial.println("WNDDIR1: "+ String(windDirection));
@@ -334,6 +353,9 @@ void setup()
     }
   }
 
+  // Start the outdoor DHT22
+  dht.begin();
+  
   // Set the anemometer pin to begin reading values
   pinMode(ANEMOMETER_PIN, INPUT); // Initialise anemometer pin as 'input'
 
