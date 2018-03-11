@@ -187,6 +187,7 @@ def parse_serial_output():
     global temp_reading1
     global temp_reading2
     global humd_reading1
+    global humd_reading2
     global airp_reading1
     global rain_reading1
     global wind_dir_reading1
@@ -202,6 +203,8 @@ def parse_serial_output():
             temp_reading2 = strip_serial_output(i)
         elif "HUMD1"  in i:
             humd_reading1 = strip_serial_output(i)
+        elif "HUMD2"  in i:
+            humd_reading2 = strip_serial_output(i)
         elif "AIRP1" in i:
             airp_reading1 = strip_serial_output(i)
         elif "RAIN1" in i:
@@ -233,7 +236,8 @@ def build_json_object():
     readings = {}
     readings['Temperature (Indoor)'] = temp_reading1
     readings['Temperature (Outdoor)'] = temp_reading2
-    readings['Humidity'] = humd_reading1
+    readings['Humidity (Indoor)'] = humd_reading1
+    readings['Humidity (Outdoor)'] = humd_reading2
     readings['Air Pressure'] = airp_reading1
     readings['Rain Fall'] = rain_reading1
     readings['Wind Dir'] = wind_dir_reading1
@@ -256,6 +260,7 @@ def print_to_display():
     print temp_reading1
     print temp_reading2
     print humd_reading1
+    print humd_reading2
     print airp_reading1
     print rain_reading1
     print wind_dir_reading1

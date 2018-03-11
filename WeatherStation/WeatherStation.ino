@@ -37,7 +37,7 @@
 // Debug flag
 // When DEBUG is FALSE only the reading output shall be printed to Serial
 // in order for the Raspberry Pi to read.
-#define DEBUG true
+#define DEBUG false
 int DEBUGCOUNTER = 0;
 
 // OUTDOOR temperature sensor (http://www.hobbytronics.co.uk/ds18b20-arduino)
