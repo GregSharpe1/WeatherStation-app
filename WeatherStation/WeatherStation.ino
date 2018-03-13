@@ -201,7 +201,7 @@ void get_anemometer_readings() {
     Serial.println("\nFailed to read from anemometer |Checksum Error|");
     Serial.println("Checksum: " + String(checksum) + " != " + String(calculatedChecksum));
   }
-  else if (DEBUG) {
+  else {
     Serial.println("Printing Wind Speed values: ");
     Serial.println(windSpeedValue);
     windSpeed = double(windSpeedValue) / 10;
@@ -402,8 +402,12 @@ void loop()
     }
     else if (recieveDatagram() == false)
     {
+      // If the recieveDatagram function fails, re run the function call. Until a reading is taken.
       windSpeed = -50.00; 
       windDirection = "N/A"; 
+
+
+
     }
     yield();
     // Return the amount of rain fall.

@@ -25,7 +25,7 @@ LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
 # This means that messages will get written with a level 20 or above.
 # Examplained well here: https://www.youtube.com/watch?v=g8nQ90Hk328
 logging.basicConfig(filename = LOG_FILE, level = logging.DEBUG, format = LOG_FORMAT)
-# Root logger  
+# Root logger
 logger = logging.getLogger()
 
 def usage():
@@ -60,7 +60,7 @@ def main():
         usage()
         sys.exit(0)
 
-    # Attempt to locate the correct arguments 
+    # Attempt to locate the correct arguments
     try:
         # use the dummy variable because pylint will throw and error.
         opts, dummy = getopt.getopt(sys.argv[1:], "de:r:c:k:t:",
@@ -70,7 +70,7 @@ def main():
                                     "certificate",
                                     "privateKey",
                                     "topic"])
-    # If the argument used within the command do not match one of the above 
+    # If the argument used within the command do not match one of the above
     # (test, endpoint, etc.. or -t, -e, etc..) then print the error and the
     # usage function to the terminal
     except getopt.GetoptError as err:
@@ -103,7 +103,7 @@ def main():
             certificate = arg
         elif opt in ("-k", "--privatekey"):
             # I only want the global variable to be set if using this option
-            global privateKey 
+            global privateKey
             privateKey = arg
         elif opt in ("-t", "--topic"):
             # I only want the global variable to be set if using this option
@@ -147,7 +147,7 @@ def get_esp8266_serial_port():
     # Attempt to connect to the port
     try:
         s = serial.Serial(port)
-        logger.info("Connected on port: {}".format(port))    
+        logger.info("Connected on port: {}".format(port))
         s.close()
     except (OSError, serial.SerialException):
         pass
@@ -171,7 +171,7 @@ def read_from_serial():
             break
         else:
             weather_readings_array.append(value)
-        
+
     # return the serial output line by line
     return weather_readings_array
 
@@ -217,9 +217,9 @@ def parse_serial_output():
 def strip_serial_output(value):
     """This function will be used to strip the serial output
        into a usable format
-       
+
        E.g TEMP1: 22.0 -> 22.0"""
-    
+
     # First of all let's strip all white space and return characters
     temp_result = value.strip()
     # After removing whitre space and return characters
@@ -229,19 +229,19 @@ def strip_serial_output(value):
 
 def build_json_object():
     """This function will initalize a JSON object holding weather information"""
-    
+
     # Make sure the global vars are initalized
     parse_serial_output()
-    
+
     readings = {}
-    readings['Temperature (Indoor)'] = temp_reading1
-    readings['Temperature (Outdoor)'] = temp_reading2
-    readings['Humidity (Indoor)'] = humd_reading1
-    readings['Humidity (Outdoor)'] = humd_reading2
-    readings['Air Pressure'] = airp_reading1
-    readings['Rain Fall'] = rain_reading1
-    readings['Wind Dir'] = wind_dir_reading1
-    readings['Wind Speed'] = wind_spd_reading1
+    readings['temperature_indoor'] = temp_reading1
+    readings['temperature_outdoor'] = temp_reading2
+    readings['humidity_indoor'] = humd_reading1
+    readings['humidity_outdoor'] = humd_reading2
+    readings['air_pressure'] = airp_reading1
+    readings['rain_fall'] = rain_reading1
+    readings['wind_direction'] = wind_dir_reading1
+    readings['wind_speed'] = wind_spd_reading1
 
     # Return the readings in JSON format
     return json.dumps(readings)
@@ -251,7 +251,7 @@ def print_to_display():
 
     print "ESP Port: " + get_esp8266_serial_port()
     print ""
-    print "Reading from serial function return: " 
+    print "Reading from serial function return: "
     print read_from_serial()
     print ""
     print "Parse serial output: "
@@ -267,7 +267,7 @@ def print_to_display():
     print wind_spd_reading1
     print ""
     print ""
-    print "JSON Output: " 
+    print "JSON Output: "
     print build_json_object()
 
 def configure_and_publish_to_aws_iot():
@@ -283,7 +283,7 @@ def configure_and_publish_to_aws_iot():
     IoTClient.configureCredentials(rootCA, privateKey, certificate)
     # log the files used
     logger.info("Using {} root path, {} certificate path and {} private key path.".format(rootCA, certificate, privateKey))
-    
+
     # AWSIoTMQTTClient connection configuration
     IoTClient.configureAutoReconnectBackoffTime(1, 32, 20)
     IoTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
@@ -303,11 +303,11 @@ def configure_and_publish_to_aws_iot():
         if 'topic' in globals():
             IoTClient.publish(topic, messageJson, 1)
             # Call the logger
-            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, topic))  
+            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, topic))
         else:
             IoTClient.publish(DEFAULT_TOPIC, messageJson, 1)
             # call the logger.
-            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, DEFAULT_TOPIC))            
+            logger.info("Published message: {} to AWS IoT with: {}".format(messageJson, DEFAULT_TOPIC))
 
         # Wait for oen second
         logger.info("Waiting for one second")
