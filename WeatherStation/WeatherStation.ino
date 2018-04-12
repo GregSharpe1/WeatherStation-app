@@ -3,8 +3,8 @@
 
     Sketch for a Aberyswyth University, Computer Science, Major Project
     Retrieves meteorological information from an assorted range of sensors including;
-    an anemometer, rain gauge, Air Pressure/Humidity/Temperature sensor (Indoor) BME280 and 
-    an OUTER temperature sensor DS18B20.
+    an anemometer, rain gauge, Air Pressure/Humidity/Temperature sensor (Indoor) BME280, 
+    an OUTER temperature sensor DS18B20 and DHT22 for outdoor Humidity.
 
     The data is outputted in a standard format and then passed onto a Raspberry
     Pi Zero for process and eventually sent to AWS IoT Service.
