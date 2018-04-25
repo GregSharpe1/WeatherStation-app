@@ -153,20 +153,19 @@ def get_esp8266_serial_port():
         pass
     return port
 
-# The function below needs to read from a serial port the entire block of JSON
-# Up until an new line.
+# The function below needs to read from a serial port
+# Up until the end character
 def read_from_serial():
     """This function will take input from the ESP8266 device attached via USB"""
     # Let's first initialise the connect with Serial library
     serial_connection_to_esp8266 = serial.Serial(get_esp8266_serial_port(), ESP8266_BRAD_RATE)
 
     weather_readings_array = []
-    # This function must run a while loop and break in the '\n' character is found
+    # This function must run a while loop and break in the ']]' character is found
     while True:
         # Read the value
         value = serial_connection_to_esp8266.readline().strip('\n')
-        # Append the value to an array if not '/n'
-        # Begin reading if the value is '[['
+        # Append the value to an array if not ']]'
         if "]]" in value:
             break
         else:

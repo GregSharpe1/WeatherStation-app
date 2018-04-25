@@ -285,7 +285,7 @@ double getHumidityReading1()
 
 ////////////////////////////////////////// OUTDOOR HUM (DHT22) ////////////////////////////////////////////////
 
-double getHumidityReading2()
+double getHumidityReadingDHT22()
 {
   // the dht22 can only take readings every 2 seconds therefore:
   delay(2000);
@@ -323,7 +323,7 @@ void displayLastReading() {
   Serial.println("TEMP1: " + String(getIndoorTemperatureReading()));
   Serial.println("TEMP2: " + String(getOutdoorTemperatureReading()));
   Serial.println("HUMD1: " + String(getHumidityReading1()));  
-  Serial.println("HUMD2: " + String(getHumidityReading2()));
+  Serial.println("HUMD2: " + String(getHumidityReadingDHT22()));
   Serial.println("AIRP1: " + String(getAirPressureReading()));
   Serial.println("RAIN1: " + String(rainFall));
   Serial.println("WNDDIR1: "+ String(windDirection));
